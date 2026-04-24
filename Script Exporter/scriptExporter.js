@@ -2,12 +2,16 @@
 export async function main(ns) {
 
     const SELF = ns.getScriptName();
-    const OUTPUT = "scripts_dump.json";
+    const JSON_OUT = "scripts_dump.json";
+    const TXT_OUT = "scripts_dump.txt";
 
     const files = ns.ls("home", ".js");
 
     let result = {};
 
+    // ----------------------------------------
+    // 1. Build JSON object in memory
+    // ----------------------------------------
     for (const file of files) {
 
         if (file === SELF) continue;
@@ -23,11 +27,31 @@ export async function main(ns) {
             continue;
         }
 
-        // key = filename, value = encoded content
         result[file] = encoded;
     }
 
-    await ns.write(OUTPUT, JSON.stringify(result, null, 2), "w");
+    // ----------------------------------------
+    // 2. Convert to JSON string
+    // ----------------------------------------
+    const jsonString = JSON.stringify(result);
 
-    ns.tprint(`Exported ${Object.keys(result).length} scripts to ${OUTPUT}`);
+    // ----------------------------------------
+    // 3. Save JSON (optional artifact)
+    // ----------------------------------------
+    await ns.write(JSON_OUT, jsonString, "w");
+
+    // ----------------------------------------
+    // 4. Encode JSON → TXT
+    // ----------------------------------------
+    let packed;
+    try {
+        packed = btoa(jsonString);
+    } catch {
+        ns.tprint("Failed to encode JSON");
+        return;
+    }
+
+    await ns.write(TXT_OUT, packed, "w");
+
+    ns.tprint(`Exported ${Object.keys(result).length} scripts → JSON + TXT`);
 }
