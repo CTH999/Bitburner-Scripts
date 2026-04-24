@@ -33,7 +33,7 @@ export async function main(ns) {
     // ----------------------------------------
     // 2. Convert to JSON string
     // ----------------------------------------
-    const jsonString = JSON.stringify(result);
+    const jsonString = JSON.stringify(result, null, 2);
 
     // ----------------------------------------
     // 3. Save JSON (optional artifact)
