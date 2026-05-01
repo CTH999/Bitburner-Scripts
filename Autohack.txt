@@ -124,7 +124,7 @@ export async function main(ns) {
     // =========================
     // BUILD MAP
     // =========================
-    function buildMap(ns, resetHacked) {
+    function buildMap(ns) {
         const map = {};
         const visited = new Set();
 
