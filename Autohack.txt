@@ -2,14 +2,18 @@
 export async function main(ns) {
     const SERVER_FILE = "serverMap.json";
     const PLAYER_FILE = "playerState.json";
-
-if (resetHacked) {
-    ns.rm(SERVER_FILE);
-}
-
-    let serverMap = buildMap(ns);
+    // =========================
+    // INITIAL PASS FLAGS
+    // =========================
+    const resetHacked =
+        ns.args[0] === "re" ||
+        ns.getHackingLevel() === 1;
+    if(resetHacked) {
+            ns.rm(SERVER_FILE);
+    }
     let lastHack = ns.getHackingLevel();
     let lastPrograms = getPrograms(ns);
+    let serverMap = buildMap(ns);
 
     // =========================
     // INITIAL PASS
@@ -120,7 +124,7 @@ if (resetHacked) {
     // =========================
     // BUILD MAP
     // =========================
-    function buildMap(ns) {
+    function buildMap(ns, resetHacked) {
         const map = {};
         const visited = new Set();
 
@@ -135,7 +139,8 @@ if (resetHacked) {
                 portsRequired: ns.getServerNumPortsRequired(server),
                 maxMoney: ns.getServerMaxMoney(server),
                 minSecurity: ns.getServerMinSecurityLevel(server),
-                specialTriggered: false
+                specialTriggered: false,
+                hacked: resetHacked ? false : true
             };
 
             for (const next of ns.scan(server)) {
