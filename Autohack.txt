@@ -3,6 +3,10 @@ export async function main(ns) {
     const SERVER_FILE = "serverMap.json";
     const PLAYER_FILE = "playerState.json";
 
+if (resetHacked) {
+    ns.rm(SERVER_FILE);
+}
+
     let serverMap = buildMap(ns);
     let lastHack = ns.getHackingLevel();
     let lastPrograms = getPrograms(ns);
