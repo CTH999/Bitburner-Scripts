@@ -1,0 +1,220 @@
+/** @param {NS} ns **/
+export async function main(ns) {
+    const SERVER_FILE = "serverMap.json";
+    const PLAYER_FILE = "playerState.json";
+
+    let serverMap = buildMap(ns);
+    let lastHack = ns.getHackingLevel();
+    let lastPrograms = getPrograms(ns);
+
+    // =========================
+    // INITIAL PASS
+    // =========================
+    savePlayerState(ns, lastHack, lastPrograms);
+    processServers(ns, serverMap, lastHack, lastPrograms);
+
+    let loop = 0;
+
+    while (true) {
+
+        const hack = ns.getHackingLevel();
+        const programs = getPrograms(ns);
+
+        const hackChanged = hack !== lastHack;
+        const programChanged = !samePrograms(programs, lastPrograms);
+
+        // rebuild map if needed
+        if (loop % 30 === 0 || hackChanged || programChanged) {
+            serverMap = buildMap(ns);
+            ns.write(SERVER_FILE, JSON.stringify(serverMap, null, 2), "w");
+        }
+
+        // save player state if changed
+        if (hackChanged || programChanged) {
+            savePlayerState(ns, hack, programs);
+        }
+
+        // process servers
+        processServers(ns, serverMap, hack, programs);
+
+        lastHack = hack;
+        lastPrograms = programs;
+
+        loop++;
+        await ns.sleep(10000);
+    }
+
+
+    // =========================
+    // CORE PROCESSING
+    // =========================
+    function processServers(ns, map, hack, programs) {
+
+        for (const [name, data] of Object.entries(map)) {
+
+            if (data.hasRoot) continue;
+
+            const canHack =
+                hack >= data.requiredHack &&
+                programs.length >= data.portsRequired;
+
+            if (!canHack) continue;
+
+            // AUTO ROOT
+            tryRoot(ns, name);
+
+            if (!ns.hasRootAccess(name)) {
+                ns.tprint(`Failed to root: ${name}`);
+                continue;
+            }
+
+            ns.print(`Rooted: ${name}`);
+            data.hasRoot = true;
+
+            // SPECIAL SERVER CHECK (backdoor targets)
+            const special = getSpecial(name);
+
+            if (special && !data.specialTriggered) {
+
+                const path = buildPath(map, name);
+
+                ns.tprint(`\n⚠ BACKDOOR TARGET AVAILABLE ⚠`);
+                ns.tprint(`Server: ${name}`);
+                ns.tprint(`Faction: ${special.name}`);
+                ns.tprint(`Path:\n${path.join(" → ")}`);
+                ns.tprint(`Next step: connect + backdoor`);
+
+                data.specialTriggered = true;
+            }
+
+            // LAUNCH HACK SCRIPT (no restrictions)
+            const pid = ns.exec("hackingController.js", "home", 1, name);
+
+            if (pid === 0) {
+                ns.tprint(`Failed to start hackingController for ${name}`);
+            } else {
+                ns.print(`Started hackingController on ${name}`);
+            }
+        }
+    }
+
+
+    // =========================
+    // AUTO ROOT
+    // =========================
+    function tryRoot(ns, server) {
+        if (ns.fileExists("BruteSSH.exe")) ns.brutessh(server);
+        if (ns.fileExists("FTPCrack.exe")) ns.ftpcrack(server);
+        if (ns.fileExists("relaySMTP.exe")) ns.relaysmtp(server);
+        if (ns.fileExists("HTTPWorm.exe")) ns.httpworm(server);
+        if (ns.fileExists("SQLInject.exe")) ns.sqlinject(server);
+
+        try { ns.nuke(server); } catch {}
+    }
+
+
+    // =========================
+    // BUILD MAP
+    // =========================
+    function buildMap(ns) {
+        const map = {};
+        const visited = new Set();
+
+        function dfs(server, parent) {
+            if (visited.has(server)) return;
+            visited.add(server);
+
+            map[server] = {
+                parentServer: parent,
+                hasRoot: ns.hasRootAccess(server),
+                requiredHack: ns.getServerRequiredHackingLevel(server),
+                portsRequired: ns.getServerNumPortsRequired(server),
+                maxMoney: ns.getServerMaxMoney(server),
+                minSecurity: ns.getServerMinSecurityLevel(server),
+                specialTriggered: false
+            };
+
+            for (const next of ns.scan(server)) {
+                if (!visited.has(next)) dfs(next, server);
+            }
+        }
+
+        dfs("home", null);
+        return map;
+    }
+
+
+    // =========================
+    // PATH BUILDER
+    // =========================
+    function buildPath(map, target) {
+        const path = [];
+        let current = target;
+
+        while (current) {
+            path.unshift(current);
+            current = map[current]?.parentServer;
+        }
+
+        return path;
+    }
+
+
+    // =========================
+    // PROGRAM DETECTION
+    // =========================
+    function getPrograms(ns) {
+        return PORT_PROGRAMS.filter(p => ns.fileExists(p, "home"));
+    }
+
+
+    // =========================
+    // PROGRAM COMPARISON
+    // =========================
+    function samePrograms(a, b) {
+        return a.length === b.length && a.every(p => b.includes(p));
+    }
+
+
+    // =========================
+    // SAVE PLAYER STATE
+    // =========================
+    function savePlayerState(ns, hack, programs) {
+        const data = {
+            hacking: hack,
+            programs: programs
+        };
+
+        ns.write(PLAYER_FILE, JSON.stringify(data, null, 2), "w");
+    }
+
+
+    // =========================
+    // SPECIAL LOOKUP
+    // =========================
+    function getSpecial(server) {
+        return SPECIAL_SERVERS[server] || null;
+    }
+}
+
+
+// =========================
+// CONSTANTS
+// =========================
+
+const PORT_PROGRAMS = [
+    "BruteSSH.exe",
+    "FTPCrack.exe",
+    "relaySMTP.exe",
+    "HTTPWorm.exe",
+    "SQLInject.exe"
+];
+
+// ALL known backdoor-required faction/progression servers
+const SPECIAL_SERVERS = {
+    "CSEC": { type: "faction", name: "CyberSec" },
+    "avmnite-02h": { type: "faction", name: "NiteSec" },
+    "I.I.I.I": { type: "faction", name: "The Black Hand" },
+    "run4theh111z": { type: "faction", name: "BitRunners" },
+    "w0r1d_d43m0n": { type: "endgame", name: "Daedalus" }
+};
