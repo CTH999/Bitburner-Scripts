@@ -10,7 +10,7 @@ export async function main(ns) {
 
     const ram = 2 ** ramExp;
 
-    const result = ns.purchaseServer(hostname, ram);
+    const result = ns.cloud.purchaseServer(hostname, ram);
 
     if (!result) {
         ns.tprint("Failed to purchase server.");
