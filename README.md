@@ -1,1 +1,1 @@
-# Bitburner Scripts
+# Bitburner Scripts: netscript
